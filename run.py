@@ -64,29 +64,15 @@ def numeric_sort_key_wc(x: str):
 
 
 def reset_filters():
-    for key in ["search", "gender", "ages", "wcs", "wcs_male", "wcs_female", "equipment", "tested_state"]:
+    for key in ["gender", "ages", "wcs_male", "wcs_female", "equipment", "tested_state"]:
         if key in st.session_state:
             del st.session_state[key]
 
 
 def filter_with_controls(df: pd.DataFrame) -> pd.DataFrame:
-    """Apply horizontal filter bar controls unless search is present (search overrides all filters)."""
-    search = st.session_state.get("search", "").strip()
-    if search:
-        s = search.lower()
-        mask = (
-            df["Sex"].str.lower().str.contains(s)
-            | df["Age Category"].str.lower().str.contains(s)
-            | df["Event"].str.lower().str.contains(s)
-            | df["Tested"].str.lower().str.contains(s)
-            | df["Equipment"].str.lower().str.contains(s)
-            | df["WeightClassKg"].str.lower().str.contains(s)
-        )
-        return df[mask]
-
+    """Apply horizontal filter bar controls (no search override)."""
     gender = st.session_state.get("gender") or []
     ages = st.session_state.get("ages") or []
-    # NEW: read separate male/female weight class selections
     wcs_male = st.session_state.get("wcs_male") or []
     wcs_female = st.session_state.get("wcs_female") or []
     equipment = st.session_state.get("equipment") or []
@@ -102,10 +88,7 @@ def filter_with_controls(df: pd.DataFrame) -> pd.DataFrame:
     if ages:
         out = out[out["Age Category"].isin(ages)]
 
-    # Weight class filtering logic:
-    # - If only Female selected, use female selections
-    # - If only Male selected, use male selections
-    # - If neither or both selected, use union of both selections (if any chosen)
+    # Weight class logic (separate by sex)
     if gender == ["Female"]:
         if wcs_female:
             out = out[out["WeightClassKg"].isin(wcs_female)]
@@ -113,16 +96,16 @@ def filter_with_controls(df: pd.DataFrame) -> pd.DataFrame:
         if wcs_male:
             out = out[out["WeightClassKg"].isin(wcs_male)]
     else:
-        # No gender selected or both selected
+        # both or none selected → allow union of both selections if any chosen
         combined = list(set(wcs_male) | set(wcs_female))
         if combined:
             out = out[out["WeightClassKg"].isin(combined)]
 
-    # Equipment filter
+    # Equipment
     if equipment:
         out = out[out["Equipment"].isin(equipment)]
 
-    # Tested/Untested filter
+    # Tested/Untested
     if tested_state == "Tested":
         out = out[out["Tested"].str.lower() == "tested"]
     elif tested_state == "Untested":
@@ -133,6 +116,17 @@ def filter_with_controls(df: pd.DataFrame) -> pd.DataFrame:
 
 def show_table(df: pd.DataFrame, title: str):
     st.markdown(f"### {title}")
+    # Polished table look via light CSS (no theme forcing)
+    st.markdown("""
+    <style>
+    /* make dataframe headers sticky and add subtle borders/striping */
+    .stDataFrame [data-testid="stHeader"] { position: sticky; top: 0; z-index: 1; }
+    .stDataFrame [role="gridcell"] { border-bottom: 1px solid rgba(0,0,0,0.05); }
+    .stDataFrame tbody tr:nth-child(even) [role="gridcell"] { background: rgba(0,0,0,0.02); }
+    .stDataFrame th div p { font-weight: 700; letter-spacing: .2px; }
+    </style>
+    """, unsafe_allow_html=True)
+
     display_cols = [
         "Sex", "Age Category", "Event", "Tested", "Equipment", "WeightClassKg", "QualifyingTotalKg",
     ]
@@ -153,8 +147,29 @@ def show_table(df: pd.DataFrame, title: str):
     )
 
 
-# -------------------- Header --------------------
+# -------------------- Header + Top Links --------------------
 st.title("WRPF UK — Qualifying Totals")
+
+# Link buttons row
+st.markdown("""
+<style>
+.linkbar { display:flex; gap:.5rem; flex-wrap:wrap; margin: .25rem 0 1rem; }
+.linkbar a {
+  text-decoration:none; padding:.6rem .9rem; border-radius:.6rem; border:1px solid rgba(0,0,0,.12);
+  font-weight:600; display:inline-block;
+}
+.link-primary  { background:#e0232e; color:#fff; border-color:#e0232e; }
+.link-neutral  { background:#f6f7f9; color:#111; }
+.link-neutral:hover { background:#eef0f4; }
+.link-primary:hover { filter:brightness(1.05); }
+</style>
+<div class="linkbar">
+  <a class="link-primary" href="https://www.wrpf.uk/memberships" target="_blank" rel="noopener">Sign Up!</a>
+  <a class="link-neutral" href="https://www.records.wrpf.uk" target="_blank" rel="noopener">Records</a>
+  <a class="link-neutral" href="https://www.wrpf.uk/events" target="_blank" rel="noopener">Events</a>
+  <a class="link-neutral" href="https://www.wrpf.uk/live" target="_blank" rel="noopener">Live Streams</a>
+</div>
+""", unsafe_allow_html=True)
 
 # -------------------- Data Load --------------------
 DEFAULT_FILE = "FP.xlsx"
@@ -174,7 +189,6 @@ except Exception as e:
 # -------------------- Build filter choices --------------------
 ages = sorted(data["Age Category"].dropna().unique().tolist())
 
-# Build male/female weight class lists from the data
 male_wcs = sorted(
     data.loc[data["Sex"] == "Male", "WeightClassKg"].dropna().unique().tolist(),
     key=numeric_sort_key_wc
@@ -189,13 +203,9 @@ eqs = sorted(data["Equipment"].dropna().unique().tolist())
 if "tested_state" not in st.session_state:
     st.session_state["tested_state"] = "All"
 
-# -------------------- Horizontal Filter Bar --------------------
-# Widened layout to allow two WC pickers when needed
-cols = st.columns([2.6, 1.2, 1.8, 1.8, 1.8, 1.6, 1.2, 0.9])
-c_search, c_gender, c_age, c_wc_f, c_wc_m, c_eq, c_tested, c_reset = cols
-
-with c_search:
-    st.text_input("Search (overrides filters)", key="search", placeholder="e.g., Open, SBD, Tested, 90, Female")
+# -------------------- Horizontal Filter Bar (no search override) --------------------
+cols = st.columns([1.2, 1.8, 1.8, 1.8, 1.6, 1.2, 0.9])
+c_gender, c_age, c_wc_f, c_wc_m, c_eq, c_tested, c_reset = cols
 
 with c_gender:
     st.multiselect("Gender", options=["Male", "Female"], key="gender")
@@ -203,9 +213,7 @@ with c_gender:
 with c_age:
     st.multiselect("Age Category", options=ages, key="ages")
 
-# Show weight class filters conditionally based on selected gender
 selected_gender = st.session_state.get("gender") or []
-
 show_female_wc = (selected_gender == ["Female"]) or (not selected_gender) or (set(selected_gender) == {"Male", "Female"})
 show_male_wc = (selected_gender == ["Male"]) or (not selected_gender) or (set(selected_gender) == {"Male", "Female"})
 
