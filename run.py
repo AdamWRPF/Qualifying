@@ -8,13 +8,6 @@ st.set_page_config(page_title="WRPF UK — Qualifying Totals", layout="wide")
 
 # -------------------- Helpers --------------------
 def load_qualifying_table(file_path_or_obj) -> pd.DataFrame:
-    """
-    Accepts:
-      - Excel with 'Men' and 'Women' sheets (like FP.xlsx), or
-      - CSV with header style: Age Category, Sex, Event, Tested, Equipment, then weight classes as columns.
-    Returns tidy DataFrame:
-      ['Age Category','Sex','Event','Tested','Equipment','WeightClassKg','QualifyingTotalKg']
-    """
     name = ""
     if isinstance(file_path_or_obj, (io.BytesIO, io.StringIO)) or hasattr(file_path_or_obj, "read"):
         name = getattr(file_path_or_obj, "name", "").lower()
@@ -40,12 +33,10 @@ def load_qualifying_table(file_path_or_obj) -> pd.DataFrame:
         value_name="QualifyingTotalKg",
     )
 
-    # Cleanup
     for c in ["Age Category", "Sex", "Event", "Tested", "Equipment", "WeightClassKg"]:
         long_df[c] = long_df[c].astype(str).str.strip()
     long_df = long_df[~long_df["QualifyingTotalKg"].isna()]
 
-    # Normalise Tested column variants
     tested_map = {
         "yes": "Tested", "true": "Tested", "tested": "Tested",
         "no": "Untested", "false": "Untested", "untested": "Untested",
@@ -70,7 +61,6 @@ def reset_filters():
 
 
 def filter_with_controls(df: pd.DataFrame) -> pd.DataFrame:
-    """Apply horizontal filter bar controls (no search override)."""
     gender = st.session_state.get("gender") or []
     ages = st.session_state.get("ages") or []
     wcs_male = st.session_state.get("wcs_male") or []
@@ -80,15 +70,12 @@ def filter_with_controls(df: pd.DataFrame) -> pd.DataFrame:
 
     out = df.copy()
 
-    # Sex filter first
     if gender:
         out = out[out["Sex"].isin(gender)]
 
-    # Age filter
     if ages:
         out = out[out["Age Category"].isin(ages)]
 
-    # Weight class logic (separate by sex)
     if gender == ["Female"]:
         if wcs_female:
             out = out[out["WeightClassKg"].isin(wcs_female)]
@@ -96,16 +83,13 @@ def filter_with_controls(df: pd.DataFrame) -> pd.DataFrame:
         if wcs_male:
             out = out[out["WeightClassKg"].isin(wcs_male)]
     else:
-        # both or none selected → allow union of both selections if any chosen
         combined = list(set(wcs_male) | set(wcs_female))
         if combined:
             out = out[out["WeightClassKg"].isin(combined)]
 
-    # Equipment
     if equipment:
         out = out[out["Equipment"].isin(equipment)]
 
-    # Tested/Untested
     if tested_state == "Tested":
         out = out[out["Tested"].str.lower() == "tested"]
     elif tested_state == "Untested":
@@ -116,10 +100,8 @@ def filter_with_controls(df: pd.DataFrame) -> pd.DataFrame:
 
 def show_table(df: pd.DataFrame, title: str):
     st.markdown(f"### {title}")
-    # Polished table look via light CSS (no theme forcing)
     st.markdown("""
     <style>
-    /* make dataframe headers sticky and add subtle borders/striping */
     .stDataFrame [data-testid="stHeader"] { position: sticky; top: 0; z-index: 1; }
     .stDataFrame [role="gridcell"] { border-bottom: 1px solid rgba(0,0,0,0.05); }
     .stDataFrame tbody tr:nth-child(even) [role="gridcell"] { background: rgba(0,0,0,0.02); }
@@ -132,7 +114,7 @@ def show_table(df: pd.DataFrame, title: str):
     ]
     view_to_show = (
         df[display_cols]
-        .sort_values(by=["Sex","Age Category","Event","Tested","Equipment","WeightClassKg"], kind="mergesort")
+        .sort_values(by=["Sex", "Age Category", "Event", "Tested", "Equipment", "WeightClassKg"], kind="mergesort")
     )
 
     st.dataframe(view_to_show, use_container_width=True, hide_index=True)
@@ -150,24 +132,39 @@ def show_table(df: pd.DataFrame, title: str):
 # -------------------- Header + Top Links --------------------
 st.title("WRPF UK — Qualifying Totals")
 
-# Link buttons row
 st.markdown("""
 <style>
-.linkbar { display:flex; gap:.5rem; flex-wrap:wrap; margin: .25rem 0 1rem; }
-.linkbar a {
-  text-decoration:none; padding:.6rem .9rem; border-radius:.6rem; border:1px solid rgba(0,0,0,.12);
-  font-weight:600; display:inline-block;
+.linkgrid{
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin: .5rem 0 1.25rem;
 }
-.link-primary  { background:#e0232e; color:#fff; border-color:#e0232e; }
-.link-neutral  { background:#f6f7f9; color:#111; }
-.link-neutral:hover { background:#eef0f4; }
-.link-primary:hover { filter:brightness(1.05); }
+@media (max-width: 1100px){
+  .linkgrid{ grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 640px){
+  .linkgrid{ grid-template-columns: 1fr; }
+}
+.linkbtn{
+  display:flex; align-items:center; justify-content:center;
+  height: 44px;
+  background: #6b6b6b;
+  color: #ffffff !important;
+  border-radius: 8px;
+  font-weight: 600;
+  text-decoration: none !important;
+  border: 1px solid #6b6b6b;
+  letter-spacing: .2px;
+}
+.linkbtn:hover{ filter: brightness(1.05); }
 </style>
-<div class="linkbar">
-  <a class="link-primary" href="https://www.wrpf.uk/memberships" target="_blank" rel="noopener">Sign Up!</a>
-  <a class="link-neutral" href="https://www.records.wrpf.uk" target="_blank" rel="noopener">Records</a>
-  <a class="link-neutral" href="https://www.wrpf.uk/events" target="_blank" rel="noopener">Events</a>
-  <a class="link-neutral" href="https://www.wrpf.uk/live" target="_blank" rel="noopener">Live Streams</a>
+
+<div class="linkgrid">
+  <a class="linkbtn" href="https://www.wrpf.uk/memberships" target="_blank" rel="noopener">Sign Up!</a>
+  <a class="linkbtn" href="https://www.wrpf.uk/records" target="_blank" rel="noopener">Records</a>
+  <a class="linkbtn" href="https://www.wrpf.uk/events" target="_blank" rel="noopener">Events</a>
+  <a class="linkbtn" href="https://www.wrpf.uk/live" target="_blank" rel="noopener">Live Streams</a>
 </div>
 """, unsafe_allow_html=True)
 
@@ -188,7 +185,6 @@ except Exception as e:
 
 # -------------------- Build filter choices --------------------
 ages = sorted(data["Age Category"].dropna().unique().tolist())
-
 male_wcs = sorted(
     data.loc[data["Sex"] == "Male", "WeightClassKg"].dropna().unique().tolist(),
     key=numeric_sort_key_wc
@@ -197,13 +193,12 @@ female_wcs = sorted(
     data.loc[data["Sex"] == "Female", "WeightClassKg"].dropna().unique().tolist(),
     key=numeric_sort_key_wc
 )
-
 eqs = sorted(data["Equipment"].dropna().unique().tolist())
 
 if "tested_state" not in st.session_state:
     st.session_state["tested_state"] = "All"
 
-# -------------------- Horizontal Filter Bar (no search override) --------------------
+# -------------------- Horizontal Filter Bar --------------------
 cols = st.columns([1.2, 1.8, 1.8, 1.8, 1.6, 1.2, 0.9])
 c_gender, c_age, c_wc_f, c_wc_m, c_eq, c_tested, c_reset = cols
 
