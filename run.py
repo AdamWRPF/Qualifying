@@ -64,7 +64,6 @@ def numeric_sort_key_wc(x: str):
 
 
 def reset_filters():
-    # DO NOT call st.rerun() here; Streamlit will rerun automatically after button click.
     for key in ["search", "gender", "ages", "wcs", "equipment", "tested_state"]:
         if key in st.session_state:
             del st.session_state[key]
@@ -128,18 +127,10 @@ def show_table(df: pd.DataFrame, title: str):
         use_container_width=True,
     )
 
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        st.metric("Rows", len(view_to_show))
-    with c2:
-        st.metric("Weight classes", view_to_show["WeightClassKg"].nunique())
-    with c3:
-        st.metric("Age groups", view_to_show["Age Category"].nunique())
-
 
 # -------------------- Header --------------------
 st.title("WRPF UK — Qualifying Totals")
-st.caption("This dashboard reads FP.xlsx from the working directory. Search overrides all filters. Reset clears everything.")
+# st.caption("This dashboard reads FP.xlsx from the working directory. Search overrides all filters. Reset clears everything.")
 
 # -------------------- Data Load --------------------
 DEFAULT_FILE = "FP.xlsx"
@@ -165,7 +156,6 @@ if "tested_state" not in st.session_state:
     st.session_state["tested_state"] = "All"
 
 # -------------------- Horizontal Filter Bar --------------------
-# Layout across the page in a single row
 f1, f2, f3, f4, f5, f6, f7 = st.columns([2.4, 1.2, 1.8, 2.0, 1.8, 1.4, 1.0])
 
 with f1:
