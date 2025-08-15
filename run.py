@@ -15,33 +15,20 @@ def load_qualifying_table(file_path_or_obj) -> pd.DataFrame:
     Returns tidy DataFrame:
       ['Age Category','Sex','Event','Tested','Equipment','WeightClassKg','QualifyingTotalKg']
     """
-    # Determine extension
     name = ""
     if isinstance(file_path_or_obj, (io.BytesIO, io.StringIO)) or hasattr(file_path_or_obj, "read"):
         name = getattr(file_path_or_obj, "name", "").lower()
     else:
         name = str(file_path_or_obj).lower()
 
-    if name.endswith((".xlsx", ".xls")):
+    if name.endswith((".xlsx", ".xls")) or (isinstance(file_path_or_obj, str) and os.path.exists(file_path_or_obj)):
         xls = pd.ExcelFile(file_path_or_obj)
-        frames = []
-        for sheet in xls.sheet_names:
-            df = pd.read_excel(xls, sheet_name=sheet)
-            frames.append(df)
+        frames = [pd.read_excel(xls, sheet_name=sheet) for sheet in xls.sheet_names]
         wide = pd.concat(frames, ignore_index=True)
     elif name.endswith(".csv"):
         wide = pd.read_csv(file_path_or_obj)
     else:
-        # Assume Excel if path exists with .xlsx
-        if isinstance(file_path_or_obj, str) and os.path.exists(file_path_or_obj):
-            xls = pd.ExcelFile(file_path_or_obj)
-            frames = []
-            for sheet in xls.sheet_names:
-                df = pd.read_excel(xls, sheet_name=sheet)
-                frames.append(df)
-            wide = pd.concat(frames, ignore_index=True)
-        else:
-            raise ValueError("Unsupported file type or file not found.")
+        raise ValueError("Unsupported file type or file not found.")
 
     base_cols = {"Age Category", "Sex", "Event", "Tested", "Equipment"}
     weight_cols = [c for c in wide.columns if c not in base_cols]
@@ -58,7 +45,7 @@ def load_qualifying_table(file_path_or_obj) -> pd.DataFrame:
         long_df[c] = long_df[c].astype(str).str.strip()
     long_df = long_df[~long_df["QualifyingTotalKg"].isna()]
 
-    # Normalise Tested column variations
+    # Normalise Tested column variants
     tested_map = {
         "yes": "Tested", "true": "Tested", "tested": "Tested",
         "no": "Untested", "false": "Untested", "untested": "Untested",
@@ -77,13 +64,10 @@ def numeric_sort_key_wc(x: str):
 
 
 def reset_filters():
+    # DO NOT call st.rerun() here; Streamlit will rerun automatically after button click.
     for key in ["search", "gender", "ages", "wcs", "equipment", "tested_state"]:
         if key in st.session_state:
             del st.session_state[key]
-    try:
-        st.rerun()
-    except Exception:
-        st.experimental_rerun()  # for older Streamlit
 
 
 def filter_with_controls(df: pd.DataFrame) -> pd.DataFrame:
@@ -155,9 +139,9 @@ def show_table(df: pd.DataFrame, title: str):
 
 # -------------------- Header --------------------
 st.title("WRPF UK — Qualifying Totals")
-# st.caption("Upload removed. This dashboard reads FP.xlsx from the working directory. Search overrides all filters. Reset clears everything.")
+st.caption("This dashboard reads FP.xlsx from the working directory. Search overrides all filters. Reset clears everything.")
 
-# -------------------- Data Load (no data source options) --------------------
+# -------------------- Data Load --------------------
 DEFAULT_FILE = "FP.xlsx"
 if not os.path.exists(DEFAULT_FILE):
     st.error(
@@ -172,7 +156,7 @@ except Exception as e:
     st.error(f"Could not read FP.xlsx. Please check the format. Details: {e}")
     st.stop()
 
-# -------------------- Build filter choices from data --------------------
+# -------------------- Build filter choices --------------------
 ages = sorted(data["Age Category"].dropna().unique().tolist())
 wcs = sorted(data["WeightClassKg"].dropna().unique().tolist(), key=numeric_sort_key_wc)
 eqs = sorted(data["Equipment"].dropna().unique().tolist())
@@ -181,8 +165,8 @@ if "tested_state" not in st.session_state:
     st.session_state["tested_state"] = "All"
 
 # -------------------- Horizontal Filter Bar --------------------
-# Layout across the page in a single row; adjust widths to taste
-f1, f2, f3, f4, f5, f6, f7 = st.columns([2.4, 1.2, 1.8, 2.0, 1.8, 1.4, 1.1])
+# Layout across the page in a single row
+f1, f2, f3, f4, f5, f6, f7 = st.columns([2.4, 1.2, 1.8, 2.0, 1.8, 1.4, 1.0])
 
 with f1:
     st.text_input("Search (overrides filters)", key="search", placeholder="e.g., 24-39, SBD, Tested, 90, Female")
@@ -219,4 +203,3 @@ with tab_singles:
     singles_df = data[data["Event"].isin(["B", "D"])]
     singles_view = filter_with_controls(singles_df)
     show_table(singles_view, "Single Lifts (B & D)")
-
