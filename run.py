@@ -155,7 +155,7 @@ def show_table(df: pd.DataFrame, title: str):
 
 # -------------------- Header --------------------
 st.title("WRPF UK — Qualifying Totals")
-st.caption("Upload removed. This dashboard reads FP.xlsx from the working directory. Search overrides all filters. Reset clears everything.")
+# st.caption("Upload removed. This dashboard reads FP.xlsx from the working directory. Search overrides all filters. Reset clears everything.")
 
 # -------------------- Data Load (no data source options) --------------------
 DEFAULT_FILE = "FP.xlsx"
@@ -219,3 +219,4 @@ with tab_singles:
     singles_df = data[data["Event"].isin(["B", "D"])]
     singles_view = filter_with_controls(singles_df)
     show_table(singles_view, "Single Lifts (B & D)")
+
