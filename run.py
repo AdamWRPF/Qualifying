@@ -64,7 +64,7 @@ def numeric_sort_key_wc(x: str):
 
 
 def reset_filters():
-    for key in ["search", "gender", "ages", "wcs", "equipment", "tested_state"]:
+    for key in ["search", "gender", "ages", "wcs", "wcs_male", "wcs_female", "equipment", "tested_state"]:
         if key in st.session_state:
             del st.session_state[key]
 
@@ -86,23 +86,48 @@ def filter_with_controls(df: pd.DataFrame) -> pd.DataFrame:
 
     gender = st.session_state.get("gender") or []
     ages = st.session_state.get("ages") or []
-    wcs = st.session_state.get("wcs") or []
+    # NEW: read separate male/female weight class selections
+    wcs_male = st.session_state.get("wcs_male") or []
+    wcs_female = st.session_state.get("wcs_female") or []
     equipment = st.session_state.get("equipment") or []
     tested_state = st.session_state.get("tested_state", "All")
 
     out = df.copy()
+
+    # Sex filter first
     if gender:
         out = out[out["Sex"].isin(gender)]
+
+    # Age filter
     if ages:
         out = out[out["Age Category"].isin(ages)]
-    if wcs:
-        out = out[out["WeightClassKg"].isin(wcs)]
+
+    # Weight class filtering logic:
+    # - If only Female selected, use female selections
+    # - If only Male selected, use male selections
+    # - If neither or both selected, use union of both selections (if any chosen)
+    if gender == ["Female"]:
+        if wcs_female:
+            out = out[out["WeightClassKg"].isin(wcs_female)]
+    elif gender == ["Male"]:
+        if wcs_male:
+            out = out[out["WeightClassKg"].isin(wcs_male)]
+    else:
+        # No gender selected or both selected
+        combined = list(set(wcs_male) | set(wcs_female))
+        if combined:
+            out = out[out["WeightClassKg"].isin(combined)]
+
+    # Equipment filter
     if equipment:
         out = out[out["Equipment"].isin(equipment)]
+
+    # Tested/Untested filter
     if tested_state == "Tested":
         out = out[out["Tested"].str.lower() == "tested"]
     elif tested_state == "Untested":
         out = out[out["Tested"].str.lower() == "untested"]
+
     return out
 
 
@@ -148,34 +173,61 @@ except Exception as e:
 
 # -------------------- Build filter choices --------------------
 ages = sorted(data["Age Category"].dropna().unique().tolist())
-wcs = sorted(data["WeightClassKg"].dropna().unique().tolist(), key=numeric_sort_key_wc)
+
+# Build male/female weight class lists from the data
+male_wcs = sorted(
+    data.loc[data["Sex"] == "Male", "WeightClassKg"].dropna().unique().tolist(),
+    key=numeric_sort_key_wc
+)
+female_wcs = sorted(
+    data.loc[data["Sex"] == "Female", "WeightClassKg"].dropna().unique().tolist(),
+    key=numeric_sort_key_wc
+)
+
 eqs = sorted(data["Equipment"].dropna().unique().tolist())
 
 if "tested_state" not in st.session_state:
     st.session_state["tested_state"] = "All"
 
 # -------------------- Horizontal Filter Bar --------------------
-f1, f2, f3, f4, f5, f6, f7 = st.columns([2.4, 1.2, 1.8, 2.0, 1.8, 1.4, 1.0])
+# Widened layout to allow two WC pickers when needed
+cols = st.columns([2.6, 1.2, 1.8, 1.8, 1.8, 1.6, 1.2, 0.9])
+c_search, c_gender, c_age, c_wc_f, c_wc_m, c_eq, c_tested, c_reset = cols
 
-with f1:
-    st.text_input("Search (overrides filters)", key="search", placeholder="e.g., 24-39, SBD, Tested, 90, Female")
+with c_search:
+    st.text_input("Search (overrides filters)", key="search", placeholder="e.g., Open, SBD, Tested, 90, Female")
 
-with f2:
+with c_gender:
     st.multiselect("Gender", options=["Male", "Female"], key="gender")
 
-with f3:
+with c_age:
     st.multiselect("Age Category", options=ages, key="ages")
 
-with f4:
-    st.multiselect("Weight Class (Kg)", options=wcs, key="wcs")
+# Show weight class filters conditionally based on selected gender
+selected_gender = st.session_state.get("gender") or []
 
-with f5:
+show_female_wc = (selected_gender == ["Female"]) or (not selected_gender) or (set(selected_gender) == {"Male", "Female"})
+show_male_wc = (selected_gender == ["Male"]) or (not selected_gender) or (set(selected_gender) == {"Male", "Female"})
+
+with c_wc_f:
+    if show_female_wc:
+        st.multiselect("Female Weight Class (Kg)", options=female_wcs, key="wcs_female")
+    else:
+        st.empty()
+
+with c_wc_m:
+    if show_male_wc:
+        st.multiselect("Male Weight Class (Kg)", options=male_wcs, key="wcs_male")
+    else:
+        st.empty()
+
+with c_eq:
     st.multiselect("Equipment", options=eqs, key="equipment")
 
-with f6:
+with c_tested:
     st.selectbox("Tested", options=["All", "Tested", "Untested"], key="tested_state")
 
-with f7:
+with c_reset:
     st.button("Reset", on_click=reset_filters)
 
 st.markdown("---")
