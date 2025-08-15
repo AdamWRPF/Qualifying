@@ -52,6 +52,21 @@ def load_qualifying_table(file_path_or_obj) -> pd.DataFrame:
     }
     long_df["Tested"] = long_df["Tested"].str.lower().map(tested_map).fillna(long_df["Tested"])
 
+    # ---- Age Category display mapping ----
+    # Rename categories per your spec. Anything not in the map stays as-is.
+    age_map = {
+        "14-15": "Teen 14-15",
+        "16-17": "Teen 16-17",
+        "18-19": "Teen 18-19",
+        "20-23": "Junior",
+        "24-39": "Open",
+        "40-49": "Masters 40-49",
+        "50-59": "Masters 50-59",
+        "60-69": "Masters 60-69",
+        "70-79": "Masters 70-79",
+    }
+    long_df["Age Category"] = long_df["Age Category"].map(lambda v: age_map.get(v, v))
+
     return long_df
 
 
@@ -64,6 +79,7 @@ def numeric_sort_key_wc(x: str):
 
 
 def reset_filters():
+    # Clear ALL filters (including search)
     for key in ["search", "gender", "ages", "wcs", "equipment", "tested_state"]:
         if key in st.session_state:
             del st.session_state[key]
@@ -130,7 +146,7 @@ def show_table(df: pd.DataFrame, title: str):
 
 # -------------------- Header --------------------
 st.title("WRPF UK — Qualifying Totals")
-# st.caption("This dashboard reads FP.xlsx from the working directory. Search overrides all filters. Reset clears everything.")
+st.caption("Reads FP.xlsx from the working directory. Search overrides all filters. Reset clears everything.")
 
 # -------------------- Data Load --------------------
 DEFAULT_FILE = "FP.xlsx"
@@ -148,24 +164,32 @@ except Exception as e:
     st.stop()
 
 # -------------------- Build filter choices --------------------
-ages = sorted(data["Age Category"].dropna().unique().tolist())
+ages = sorted(data["Age Category"].dropna().unique().tolist())  # already mapped to your display names
 wcs = sorted(data["WeightClassKg"].dropna().unique().tolist(), key=numeric_sort_key_wc)
 eqs = sorted(data["Equipment"].dropna().unique().tolist())
+
+# Only show "Masters 70-79" if present in the data (handled naturally by the unique list above)
 
 if "tested_state" not in st.session_state:
     st.session_state["tested_state"] = "All"
 
 # -------------------- Horizontal Filter Bar --------------------
+# Remove the "sub title" label for the Age Category dropdown — collapse its label.
 f1, f2, f3, f4, f5, f6, f7 = st.columns([2.4, 1.2, 1.8, 2.0, 1.8, 1.4, 1.0])
 
 with f1:
-    st.text_input("Search (overrides filters)", key="search", placeholder="e.g., 24-39, SBD, Tested, 90, Female")
+    st.text_input("Search (overrides filters)", key="search", placeholder="e.g., Open, SBD, Tested, 90, Female")
 
 with f2:
     st.multiselect("Gender", options=["Male", "Female"], key="gender")
 
 with f3:
-    st.multiselect("Age Category", options=ages, key="ages")
+    st.multiselect(
+        label="Age Category",
+        options=ages,
+        key="ages",
+        label_visibility="collapsed"  # <-- hides the "Age Category" subtitle/label
+    )
 
 with f4:
     st.multiselect("Weight Class (Kg)", options=wcs, key="wcs")
