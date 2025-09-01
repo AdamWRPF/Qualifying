@@ -170,6 +170,8 @@ st.markdown("""
 
 # -------------------- Data Load --------------------
 DEFAULT_FILE = "FP.xlsx"
+PREV_FILE = "2025_FP.xlsx"  # used in the "Previous Years QT" tab
+
 if not os.path.exists(DEFAULT_FILE):
     st.error(
         "Missing **FP.xlsx** in the current folder. "
@@ -183,17 +185,39 @@ except Exception as e:
     st.error(f"Could not read FP.xlsx. Please check the format. Details: {e}")
     st.stop()
 
-# -------------------- Build filter choices --------------------
-ages = sorted(data["Age Category"].dropna().unique().tolist())
-male_wcs = sorted(
-    data.loc[data["Sex"] == "Male", "WeightClassKg"].dropna().unique().tolist(),
-    key=numeric_sort_key_wc
-)
-female_wcs = sorted(
-    data.loc[data["Sex"] == "Female", "WeightClassKg"].dropna().unique().tolist(),
-    key=numeric_sort_key_wc
-)
-eqs = sorted(data["Equipment"].dropna().unique().tolist())
+# Try to load previous year's file, but don't stop if it's missing.
+prev_data = None
+if os.path.exists(PREV_FILE):
+    try:
+        prev_data = load_qualifying_table(PREV_FILE)
+    except Exception as e:
+        st.warning(f"Found {PREV_FILE} but could not read it. Details: {e}")
+else:
+    # We'll show a friendly message only inside the tab if selected
+    prev_data = None
+
+# -------------------- Build filter choices (union across files if available) --------------------
+def union_series(series_list):
+    out = pd.Series(dtype=object)
+    for s in series_list:
+        out = pd.Series(pd.unique(pd.concat([out, s.dropna().astype(str)])))
+    return sorted(out.tolist())
+
+source_series_ages = [data["Age Category"]]
+source_series_eq = [data["Equipment"]]
+male_wc_series = [data.loc[data["Sex"] == "Male", "WeightClassKg"]]
+female_wc_series = [data.loc[data["Sex"] == "Female", "WeightClassKg"]]
+
+if isinstance(prev_data, pd.DataFrame):
+    source_series_ages.append(prev_data["Age Category"])
+    source_series_eq.append(prev_data["Equipment"])
+    male_wc_series.append(prev_data.loc[prev_data["Sex"] == "Male", "WeightClassKg"])
+    female_wc_series.append(prev_data.loc[prev_data["Sex"] == "Female", "WeightClassKg"])
+
+ages = union_series(source_series_ages)
+eqs = union_series(source_series_eq)
+male_wcs = sorted(pd.unique(pd.concat(male_wc_series).astype(str)).tolist(), key=numeric_sort_key_wc)
+female_wcs = sorted(pd.unique(pd.concat(female_wc_series).astype(str)).tolist(), key=numeric_sort_key_wc)
 
 if "tested_state" not in st.session_state:
     st.session_state["tested_state"] = "All"
@@ -236,7 +260,7 @@ with c_reset:
 st.markdown("---")
 
 # -------------------- Tabs --------------------
-tab_sbd, tab_singles = st.tabs(["Full Power (SBD)", "Single Lifts (B & D)"])
+tab_sbd, tab_singles, tab_prev = st.tabs(["Full Power (SBD)", "Single Lifts (B & D)", "Previous Years QT"])
 
 with tab_sbd:
     sbd_df = data[data["Event"] == "SBD"]
@@ -247,3 +271,18 @@ with tab_singles:
     singles_df = data[data["Event"].isin(["B", "D"])]
     singles_view = filter_with_controls(singles_df)
     show_table(singles_view, "Single Lifts (B & D)")
+
+with tab_prev:
+    if prev_data is None:
+        st.info(f"Add **{PREV_FILE}** next to `app.py` to view previous year’s qualifying totals here.")
+    else:
+        st.markdown("#### Previous Year — Based on 2025_FP.xlsx")
+        prev_sbd = prev_data[prev_data["Event"] == "SBD"]
+        prev_singles = prev_data[prev_data["Event"].isin(["B", "D"])]
+
+        prev_sbd_view = filter_with_controls(prev_sbd)
+        show_table(prev_sbd_view, "Previous Year — Full Power (SBD)")
+
+        st.markdown("---")
+        prev_singles_view = filter_with_controls(prev_singles)
+        show_table(prev_singles_view, "Previous Year — Single Lifts (B & D)")
