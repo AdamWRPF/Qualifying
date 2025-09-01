@@ -260,7 +260,7 @@ with c_reset:
 st.markdown("---")
 
 # -------------------- Tabs --------------------
-tab_sbd, tab_singles, tab_prev = st.tabs(["Full Power (SBD)", "Single Lifts (B & D)", "Previous Years QT"])
+tab_sbd, tab_singles, tab_prev = st.tabs(["Full Power (SBD)", "Single Lifts (B & D)", "2025 Qualifying Totals"])
 
 with tab_sbd:
     sbd_df = data[data["Event"] == "SBD"]
@@ -286,4 +286,5 @@ with tab_prev:
         st.markdown("---")
         prev_singles_view = filter_with_controls(prev_singles)
         show_table(prev_singles_view, "Previous Year — Single Lifts (B & D)")
+
 
