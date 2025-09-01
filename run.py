@@ -170,7 +170,7 @@ st.markdown("""
 
 # -------------------- Data Load --------------------
 DEFAULT_FILE = "FP.xlsx"
-PREV_FILE = "2025_FP.xlsx"  # used in the "Previous Years QT" tab
+PREV_FILE = "2025_FP.xlsx"  # used in the "2025 Qualifying Totals" tab
 
 if not os.path.exists(DEFAULT_FILE):
     st.error(
@@ -286,3 +286,4 @@ with tab_prev:
         st.markdown("---")
         prev_singles_view = filter_with_controls(prev_singles)
         show_table(prev_singles_view, "Previous Year — Single Lifts (B & D)")
+
