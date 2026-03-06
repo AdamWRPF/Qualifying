@@ -1,4 +1,3 @@
-# app.py
 import os
 import io
 import pandas as pd
@@ -6,7 +5,6 @@ import streamlit as st
 
 st.set_page_config(page_title="WRPF UK — Qualifying Totals", layout="wide")
 
-# -------------------- Helpers --------------------
 def load_qualifying_table(file_path_or_obj) -> pd.DataFrame:
     name = ""
     if isinstance(file_path_or_obj, (io.BytesIO, io.StringIO)) or hasattr(file_path_or_obj, "read"):
@@ -128,8 +126,6 @@ def show_table(df: pd.DataFrame, title: str):
         use_container_width=True,
     )
 
-
-# -------------------- Header + Top Links --------------------
 st.title("WRPF UK — Qualifying Totals")
 
 st.markdown("""
@@ -168,7 +164,6 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# -------------------- Data Load --------------------
 DEFAULT_FILE = "FP.xlsx"
 PREV_FILE = "2025_FP.xlsx"  # used in the "2025 Qualifying Totals" tab
 
@@ -196,7 +191,6 @@ else:
     # We'll show a friendly message only inside the tab if selected
     prev_data = None
 
-# -------------------- Build filter choices (union across files if available) --------------------
 def union_series(series_list):
     out = pd.Series(dtype=object)
     for s in series_list:
@@ -222,7 +216,6 @@ female_wcs = sorted(pd.unique(pd.concat(female_wc_series).astype(str)).tolist(),
 if "tested_state" not in st.session_state:
     st.session_state["tested_state"] = "All"
 
-# -------------------- Horizontal Filter Bar --------------------
 cols = st.columns([1.2, 1.8, 1.8, 1.8, 1.6, 1.2, 0.9])
 c_gender, c_age, c_wc_f, c_wc_m, c_eq, c_tested, c_reset = cols
 
@@ -259,7 +252,6 @@ with c_reset:
 
 st.markdown("---")
 
-# -------------------- Tabs --------------------
 tab_sbd, tab_singles, tab_prev = st.tabs(["Full Power (SBD)", "Single Lifts (B & D)", "2025 Qualifying Totals"])
 
 with tab_sbd:
@@ -286,5 +278,6 @@ with tab_prev:
         st.markdown("---")
         prev_singles_view = filter_with_controls(prev_singles)
         show_table(prev_singles_view, "Previous Year — Single Lifts (B & D)")
+
 
 
