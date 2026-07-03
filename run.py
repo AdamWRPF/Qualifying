@@ -529,7 +529,7 @@ def render_qualified_cards(results: pd.DataFrame):
         <div class="qualified-card">
           <div class="qualified-name">{name}</div>
           <div class="qualified-row">
-            <span class="qualified-label">Open Nationals</span>
+            <span class="qualified-label">Teen, Junior &amp; Open Nationals</span>
             <span class="qualified-pill {open_class}">{open_text}</span>
           </div>
           <div class="qualified-row">
@@ -672,8 +672,7 @@ with tab_prev:
 
 with tab_qualified:
     st.markdown("### Qualified Athletes")
-    st.caption("Search for an athlete to see whether they have qualified for Open Nationals, Masters Nationals or both.")
-    st.caption("Please be aware this database do not include those who qualify at Novice events. If you didn't receive your invitation following a novice event and you held a WRPF UK Membership at the time of competition, please email us at events@wrpf.uk")
+    st.caption("Search for an athlete to see whether they have qualified for Teen, Junior & Open Nationals, Masters Nationals or both.")
 
     if not os.path.exists(QUALIFIED_FILE):
         st.error(f"{QUALIFIED_FILE} not found.")
