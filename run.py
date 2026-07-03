@@ -505,7 +505,7 @@ def load_qualified_athletes(file_path: str) -> pd.DataFrame:
         qualified
         .groupby("Name", as_index=False, sort=False)
         .agg({
-            "Open Nationals": lambda s: "Yes" if any(v == "Yes" for v in s) else "",
+            "Teen, Junior & Open Nationals": lambda s: "Yes" if any(v == "Yes" for v in s) else "",
             "Masters Nationals": lambda s: "Yes" if any(v == "Yes" for v in s) else "",
         })
     )
