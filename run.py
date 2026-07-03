@@ -642,7 +642,7 @@ def render_qualified_cards(results: pd.DataFrame):
     st.markdown(f'<div class="qualified-results">{"".join(cards)}</div>', unsafe_allow_html=True)
 
     if any_qualified:
-        st.info("If you have not received your invitation email, please check your junk folder first but this confirms your qualification.)
+        st.info("If you have not received your invitation email, please check your junk folder first, then contact events@wrpf.uk.")
 
 
 def render_qualified_name_picker(results: pd.DataFrame):
