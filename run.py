@@ -671,82 +671,27 @@ with tab_prev:
 
 
 with tab_qualified:
-    st.markdown("""
-    <div class="qualified-hero">
-      <div class="qualified-kicker">Public qualification checker</div>
-      <div class="qualified-title">Qualified Athletes</div>
-      <div class="qualified-copy">
-        Type an athlete’s name to check whether they are currently listed for Open Nationals, Masters Nationals, or both.
-        This is a search-only view, so there is no CSV export or full downloadable list on this tab.
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown("### Qualified Athletes")
+    st.caption("Search for an athlete to see whether they have qualified for Open Nationals, Masters Nationals or both.")
 
     if not os.path.exists(QUALIFIED_FILE):
-        st.markdown(
-            f'<div class="qualified-alert">Missing <strong>{QUALIFIED_FILE}</strong>. Place it next to this Streamlit file and reload the app.</div>',
-            unsafe_allow_html=True,
-        )
+        st.error(f"{QUALIFIED_FILE} not found.")
     else:
         try:
             qualified_data = load_qualified_athletes(QUALIFIED_FILE)
         except Exception as e:
-            st.markdown(
-                f'<div class="qualified-alert">Could not read <strong>{QUALIFIED_FILE}</strong>. Please check the format. Details: {html.escape(str(e))}</div>',
-                unsafe_allow_html=True,
-            )
+            st.error(f"Could not read {QUALIFIED_FILE}: {e}")
         else:
-            total_athletes = len(qualified_data)
-            open_count = int((qualified_data["Open Nationals"].str.lower() == "yes").sum())
-            masters_count = int((qualified_data["Masters Nationals"].str.lower() == "yes").sum())
-            both_count = int(
-                (
-                    (qualified_data["Open Nationals"].str.lower() == "yes")
-                    & (qualified_data["Masters Nationals"].str.lower() == "yes")
-                ).sum()
-            )
-
-            st.markdown(f"""
-            <div class="qualified-stats">
-              <div class="qualified-stat">
-                <div class="qualified-stat-value">{total_athletes:,}</div>
-                <div class="qualified-stat-label">Athletes loaded</div>
-              </div>
-              <div class="qualified-stat">
-                <div class="qualified-stat-value">{open_count:,}</div>
-                <div class="qualified-stat-label">Open Nationals</div>
-              </div>
-              <div class="qualified-stat">
-                <div class="qualified-stat-value">{masters_count:,}</div>
-                <div class="qualified-stat-label">Masters Nationals</div>
-              </div>
-              <div class="qualified-stat">
-                <div class="qualified-stat-value">{both_count:,}</div>
-                <div class="qualified-stat-label">Qualified for both</div>
-              </div>
-            </div>
-            """, unsafe_allow_html=True)
-
-            st.markdown(
-                '<div class="qualified-search-panel"><strong>Search the database</strong><div class="qualified-note">Enter at least 2 characters. Results are shown as cards rather than a table to keep this as a basic lookup tool.</div></div>',
-                unsafe_allow_html=True,
-            )
             search_name = st.text_input(
-                "Search athlete name",
-                placeholder="Example: Adam Smith",
+                "Search athlete",
+                placeholder="Start typing a name...",
                 key="qualified_athlete_search",
             ).strip()
 
             if not search_name:
-                st.markdown(
-                    '<div class="qualified-empty">Start typing above to check an athlete’s qualification status.</div>',
-                    unsafe_allow_html=True,
-                )
+                st.info("Type an athlete name above to search.")
             elif len(search_name) < 2:
-                st.markdown(
-                    '<div class="qualified-empty">Please enter at least 2 characters to search.</div>',
-                    unsafe_allow_html=True,
-                )
+                st.info("Enter at least 2 characters.")
             else:
                 query = search_name.lower()
                 results = qualified_data[
@@ -754,29 +699,10 @@ with tab_qualified:
                 ].copy()
 
                 if results.empty:
-                    st.markdown(
-                        '<div class="qualified-alert">No matching qualified athlete found. Check the spelling or try a shorter part of the name.</div>',
-                        unsafe_allow_html=True,
-                    )
+                    st.warning("No matching athlete found.")
                 else:
-                    # Prioritise exact and starts-with matches above looser partial matches.
                     results["_rank"] = results["Name"].str.lower().apply(
-                        lambda name: 0 if name == query else 1 if name.startswith(query) else 2
+                        lambda n: 0 if n == query else 1 if n.startswith(query) else 2
                     )
-                    results = results.sort_values(["_rank", "Name"], kind="mergesort").drop(columns=["_rank"])
-
-                    max_cards = 24
-                    shown = results.head(max_cards)
-                    suffix = "" if len(results) == 1 else "s"
-                    st.markdown(
-                        f'<div class="qualified-success">{len(results)} matching athlete{suffix} found.</div>',
-                        unsafe_allow_html=True,
-                    )
-                    render_qualified_cards(shown)
-
-                    if len(results) > max_cards:
-                        st.markdown(
-                            f'<div class="qualified-empty">Showing the first {max_cards} matches. Type more of the athlete name to narrow the results.</div>',
-                            unsafe_allow_html=True,
-                        )
-
+                    results = results.sort_values(["_rank", "Name"]).drop(columns=["_rank"])
+                    render_qualified_cards(results.head(20))
