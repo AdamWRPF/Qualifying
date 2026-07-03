@@ -314,6 +314,37 @@ def inject_app_style():
       background: #f3f4f6;
       border: 1px solid #e5e7eb;
     }
+    .qualified-row-disciplines{
+      align-items: flex-start;
+    }
+    .qualified-discipline-list{
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: .35rem;
+      max-width: 58%;
+    }
+    .qualified-discipline-pill{
+      border-radius: 999px;
+      padding: .28rem .62rem;
+      font-size: .78rem;
+      font-weight: 950;
+      white-space: nowrap;
+      color: #047857;
+      background: #d1fae5;
+      border: 1px solid #a7f3d0;
+    }
+    @media (max-width: 520px){
+      .qualified-row{
+        align-items: flex-start;
+        flex-direction: column;
+        gap: .35rem;
+      }
+      .qualified-discipline-list{
+        justify-content: flex-start;
+        max-width: 100%;
+      }
+    }
     .qualified-empty{
       border-radius: 16px;
       border: 1px dashed rgba(17,24,39,.20);
@@ -479,6 +510,31 @@ def show_table(df: pd.DataFrame, title: str):
 
 QUALIFIED_FILE = "Qualified.csv"
 
+OPEN_PUBLIC_LABEL = "Teen, Junior & Open Nationals"
+
+DISCIPLINE_GROUPS = [
+    (
+        "Open Nationals",
+        OPEN_PUBLIC_LABEL,
+        [
+            ("Open Nationals Full Power", "Full Power"),
+            ("Open Nationals Bench Only", "Bench Only"),
+            ("Open Nationals Deadlift Only", "Deadlift Only"),
+        ],
+    ),
+    (
+        "Masters Nationals",
+        "Masters Nationals",
+        [
+            ("Masters Nationals Full Power", "Full Power"),
+            ("Masters Nationals Bench Only", "Bench Only"),
+            ("Masters Nationals Deadlift Only", "Deadlift Only"),
+        ],
+    ),
+]
+
+DISCIPLINE_COLUMNS = [column for _, _, columns in DISCIPLINE_GROUPS for column, _ in columns]
+
 
 def normalise_name_for_search(value) -> str:
     """Normalise names so public search copes with case, hyphens, punctuation, accents, and spacing."""
@@ -578,28 +634,47 @@ def load_qualified_athletes(file_path: str) -> pd.DataFrame:
     qualified = pd.read_csv(file_path, encoding="utf-8-sig")
     qualified.columns = [str(c).strip() for c in qualified.columns]
 
-    required_cols = ["Name", "Open Nationals", "Masters Nationals"]
-    missing = [c for c in required_cols if c not in qualified.columns]
-    if missing:
-        raise ValueError(f"Missing required column(s): {', '.join(missing)}")
+    if "Name" not in qualified.columns:
+        raise ValueError("Missing required column: Name")
 
-    qualified = qualified[required_cols].copy()
-    for col in required_cols:
-        qualified[col] = qualified[col].fillna("").astype(str).str.strip()
+    # New export format: one column per Nationals route and discipline.
+    # Example: Open Nationals Full Power, Masters Nationals Bench Only, etc.
+    missing_new_cols = [c for c in DISCIPLINE_COLUMNS if c not in qualified.columns]
 
+    if missing_new_cols:
+        # Backwards compatibility for the old two-column export. This keeps the app
+        # online if an old CSV is accidentally uploaded, but the new format is required
+        # to display exact disciplines.
+        old_cols = ["Open Nationals", "Masters Nationals"]
+        missing_old_cols = [c for c in old_cols if c not in qualified.columns]
+        if missing_old_cols:
+            raise ValueError(
+                "Missing required discipline column(s): "
+                + ", ".join(missing_new_cols)
+            )
+
+        qualified = qualified[["Name"] + old_cols].copy()
+        qualified["Open Nationals Full Power"] = qualified["Open Nationals"]
+        qualified["Open Nationals Bench Only"] = ""
+        qualified["Open Nationals Deadlift Only"] = ""
+        qualified["Masters Nationals Full Power"] = qualified["Masters Nationals"]
+        qualified["Masters Nationals Bench Only"] = ""
+        qualified["Masters Nationals Deadlift Only"] = ""
+    else:
+        qualified = qualified[["Name"] + DISCIPLINE_COLUMNS].copy()
+
+    qualified["Name"] = qualified["Name"].fillna("").astype(str).str.strip()
     qualified = qualified[qualified["Name"] != ""].copy()
-    qualified["Open Nationals"] = qualified["Open Nationals"].apply(normalise_yes)
-    qualified["Masters Nationals"] = qualified["Masters Nationals"].apply(normalise_yes)
+
+    for col in DISCIPLINE_COLUMNS:
+        qualified[col] = qualified[col].apply(normalise_yes)
 
     # If the CSV is appended to over time and a lifter appears more than once,
     # combine the rows so the public search only shows one clear result per lifter.
     qualified = (
         qualified
         .groupby("Name", as_index=False, sort=False)
-        .agg({
-            "Open Nationals": lambda s: "Yes" if any(v == "Yes" for v in s) else "",
-            "Masters Nationals": lambda s: "Yes" if any(v == "Yes" for v in s) else "",
-        })
+        .agg({col: (lambda s: "Yes" if any(v == "Yes" for v in s) else "") for col in DISCIPLINE_COLUMNS})
     )
 
     qualified["_SearchName"] = qualified["Name"].apply(normalise_name_for_search)
@@ -608,41 +683,60 @@ def load_qualified_athletes(file_path: str) -> pd.DataFrame:
     return qualified.sort_values("Name", kind="mergesort").reset_index(drop=True)
 
 
+def get_qualified_disciplines(row: pd.Series, columns) -> list[str]:
+    return [label for column, label in columns if str(row.get(column, "")).strip().lower() == "yes"]
+
+
+def render_discipline_status(row: pd.Series, public_label: str, columns) -> str:
+    disciplines = get_qualified_disciplines(row, columns)
+    safe_label = html.escape(public_label)
+
+    if disciplines:
+        chips = "".join(
+            f'<span class="qualified-discipline-pill">{html.escape(discipline)}</span>'
+            for discipline in disciplines
+        )
+        return (
+            '<div class="qualified-row qualified-row-disciplines">'
+            f'<span class="qualified-label">{safe_label}</span>'
+            f'<span class="qualified-discipline-list">{chips}</span>'
+            '</div>'
+        )
+
+    return (
+        '<div class="qualified-row">'
+        f'<span class="qualified-label">{safe_label}</span>'
+        '<span class="qualified-pill no">Not currently listed</span>'
+        '</div>'
+    )
+
+
 def render_qualified_cards(results: pd.DataFrame):
     cards = []
     any_qualified = False
 
     for _, row in results.iterrows():
         name = html.escape(str(row["Name"]))
-        open_yes = str(row["Open Nationals"]).strip().lower() == "yes"
-        masters_yes = str(row["Masters Nationals"]).strip().lower() == "yes"
-        any_qualified = any_qualified or open_yes or masters_yes
+        category_rows = []
 
-        open_class = "yes" if open_yes else "no"
-        masters_class = "yes" if masters_yes else "no"
-        open_text = "Qualified" if open_yes else "Not currently listed"
-        masters_text = "Qualified" if masters_yes else "Not currently listed"
+        for _, public_label, columns in DISCIPLINE_GROUPS:
+            disciplines = get_qualified_disciplines(row, columns)
+            any_qualified = any_qualified or bool(disciplines)
+            category_rows.append(render_discipline_status(row, public_label, columns))
 
         # Keep the HTML unindented. Streamlit parses indented HTML as a Markdown
         # code block when multiple search results are returned.
         cards.append(
             '<div class="qualified-card">'
             f'<div class="qualified-name">{name}</div>'
-            '<div class="qualified-row">'
-            '<span class="qualified-label">Teen, Junior &amp; Open Nationals</span>'
-            f'<span class="qualified-pill {open_class}">{open_text}</span>'
-            '</div>'
-            '<div class="qualified-row">'
-            '<span class="qualified-label">Masters Nationals</span>'
-            f'<span class="qualified-pill {masters_class}">{masters_text}</span>'
-            '</div>'
+            f'{"".join(category_rows)}'
             '</div>'
         )
 
     st.markdown(f'<div class="qualified-results">{"".join(cards)}</div>', unsafe_allow_html=True)
 
     if any_qualified:
-        st.info("If you have not received your invitation email, please check your junk folder first. The above confirms your qualification.")
+        st.info("If you have not received your invitation email, please check your junk folder first, then contact events@wrpf.uk.")
 
 
 def render_qualified_name_picker(results: pd.DataFrame):
@@ -790,7 +884,7 @@ with tab_prev:
 
 with tab_qualified:
     st.markdown("### Qualified Athletes")
-    st.caption("Search for an athlete to see whether they have qualified for Teen, Junior & Open Nationals, Masters Nationals or both.")
+    st.caption("Search for an athlete to see whether they have qualified for Teen, Junior & Open Nationals, Masters Nationals or both, including the discipline they have qualified for.")
     st.caption("Please be aware, if you have qualified at a Novice event, or cross federation, you will not appear in this database.")
     st.caption("If you competed at a novice event with a WRPF UK Membership you will have received an invitation via email.")
     st.caption("Any queries, please send them to events@wrpf.uk")
