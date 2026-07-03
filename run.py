@@ -553,6 +553,7 @@ def render_qualified_name_picker(results: pd.DataFrame):
         athlete_name = str(row["Name"]).strip()
         if st.button(athlete_name, key=f"qualified_pick_{i}_{athlete_name}", use_container_width=True):
             st.session_state["qualified_selected_name"] = athlete_name
+            st.rerun()
 
     if len(results) > 20:
         st.caption("Showing the first 20 matches. Type more of the name to narrow the search.")
@@ -689,7 +690,7 @@ with tab_prev:
 with tab_qualified:
     st.markdown("### Qualified Athletes")
     st.caption("Search for an athlete to see whether they have qualified for Teen, Junior & Open Nationals, Masters Nationals or both.")
-    st.caption("Please be aware, if you have qualified at a Novice event, or cross federation, you will not appear in this datbase.")
+    st.caption("Please be aware, if you have qualified at a Novice event, or cross federation, you will not appear in this database.")
     st.caption("If you competed at a novice event with a WRPF UK Membership you will have received an invitation via email.")
     st.caption("Any queries, please send them to events@wrpf.uk")
 
@@ -729,14 +730,16 @@ with tab_qualified:
                     )
                     results = results.sort_values(["_rank", "Name"]).drop(columns=["_rank"])
 
+                    selected_name = st.session_state.get("qualified_selected_name")
+
                     if len(results) == 1:
                         render_qualified_cards(results)
+                    elif selected_name:
+                        selected = results[results["Name"] == selected_name]
+                        if selected.empty:
+                            st.session_state.pop("qualified_selected_name", None)
+                            render_qualified_name_picker(results)
+                        else:
+                            render_qualified_cards(selected)
                     else:
                         render_qualified_name_picker(results)
-
-                        selected_name = st.session_state.get("qualified_selected_name")
-                        if selected_name:
-                            selected = results[results["Name"] == selected_name]
-                            if not selected.empty:
-                                st.markdown("---")
-                                render_qualified_cards(selected)
