@@ -408,7 +408,7 @@ with tab_prev:
 
 with tab_qualified:
     st.markdown("### Qualified Athletes")
-    st.caption("Search the public qualification database by athlete name. This section does not include a CSV export button.")
+    st.caption("Search the public qualification database by athlete name")
 
     if not os.path.exists(QUALIFIED_FILE):
         st.warning(
