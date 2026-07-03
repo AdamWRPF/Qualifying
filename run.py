@@ -706,7 +706,7 @@ def render_discipline_status(row: pd.Series, public_label: str, columns) -> str:
     return (
         '<div class="qualified-row">'
         f'<span class="qualified-label">{safe_label}</span>'
-        '<span class="qualified-pill no">Not currently listed</span>'
+        '<span class="qualified-pill no">Not currently qualified</span>'
         '</div>'
     )
 
