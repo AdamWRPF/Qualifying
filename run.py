@@ -689,6 +689,9 @@ with tab_prev:
 with tab_qualified:
     st.markdown("### Qualified Athletes")
     st.caption("Search for an athlete to see whether they have qualified for Teen, Junior & Open Nationals, Masters Nationals or both.")
+    st.caption("Please be aware, if you have qualified at a Novice event, or cross federation, you will not appear in this datbase.")
+    st.caption("If you competed at a novice event with a WRPF UK Membership you will have received an invitation via email.")
+    st.caption("Any queries, please send them to events@wrpf.uk")
 
     if not os.path.exists(QUALIFIED_FILE):
         st.error(f"{QUALIFIED_FILE} not found.")
