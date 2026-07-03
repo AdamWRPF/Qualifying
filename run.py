@@ -525,21 +525,37 @@ def render_qualified_cards(results: pd.DataFrame):
         open_text = "Qualified" if open_yes else "Not listed"
         masters_text = "Qualified" if masters_yes else "Not listed"
 
-        cards.append(f"""
-        <div class="qualified-card">
-          <div class="qualified-name">{name}</div>
-          <div class="qualified-row">
-            <span class="qualified-label">Teen, Junior &amp; Open Nationals</span>
-            <span class="qualified-pill {open_class}">{open_text}</span>
-          </div>
-          <div class="qualified-row">
-            <span class="qualified-label">Masters Nationals</span>
-            <span class="qualified-pill {masters_class}">{masters_text}</span>
-          </div>
-        </div>
-        """)
+        # Keep the HTML unindented. Streamlit parses indented HTML as a Markdown
+        # code block when multiple search results are returned.
+        cards.append(
+            '<div class="qualified-card">'
+            f'<div class="qualified-name">{name}</div>'
+            '<div class="qualified-row">'
+            '<span class="qualified-label">Teen, Junior &amp; Open Nationals</span>'
+            f'<span class="qualified-pill {open_class}">{open_text}</span>'
+            '</div>'
+            '<div class="qualified-row">'
+            '<span class="qualified-label">Masters Nationals</span>'
+            f'<span class="qualified-pill {masters_class}">{masters_text}</span>'
+            '</div>'
+            '</div>'
+        )
 
     st.markdown(f'<div class="qualified-results">{"".join(cards)}</div>', unsafe_allow_html=True)
+
+
+def render_qualified_name_picker(results: pd.DataFrame):
+    st.markdown("#### Select athlete")
+    st.caption("Multiple athletes match this search. Select the correct name to view their qualification status.")
+
+    visible_results = results.head(20).reset_index(drop=True)
+    for i, row in visible_results.iterrows():
+        athlete_name = str(row["Name"]).strip()
+        if st.button(athlete_name, key=f"qualified_pick_{i}_{athlete_name}", use_container_width=True):
+            st.session_state["qualified_selected_name"] = athlete_name
+
+    if len(results) > 20:
+        st.caption("Showing the first 20 matches. Type more of the name to narrow the search.")
 
 
 inject_app_style()
@@ -673,9 +689,6 @@ with tab_prev:
 with tab_qualified:
     st.markdown("### Qualified Athletes")
     st.caption("Search for an athlete to see whether they have qualified for Teen, Junior & Open Nationals, Masters Nationals or both.")
-    st.caption("Please be aware, if you have qualified at a Novice event, or cross federation, you will not appear in this datbase.")
-    st.caption("If you competed at a novice event with a WRPF UK Membership you will have received an invitation via email.")
-    st.caption("Any queries, please send them to events@wrpf.uk")
 
     if not os.path.exists(QUALIFIED_FILE):
         st.error(f"{QUALIFIED_FILE} not found.")
@@ -690,6 +703,10 @@ with tab_qualified:
                 placeholder="Start typing a name...",
                 key="qualified_athlete_search",
             ).strip()
+
+            if st.session_state.get("qualified_last_search") != search_name:
+                st.session_state["qualified_last_search"] = search_name
+                st.session_state.pop("qualified_selected_name", None)
 
             if not search_name:
                 st.info("Type an athlete name above to search.")
@@ -708,4 +725,15 @@ with tab_qualified:
                         lambda n: 0 if n == query else 1 if n.startswith(query) else 2
                     )
                     results = results.sort_values(["_rank", "Name"]).drop(columns=["_rank"])
-                    render_qualified_cards(results.head(20))
+
+                    if len(results) == 1:
+                        render_qualified_cards(results)
+                    else:
+                        render_qualified_name_picker(results)
+
+                        selected_name = st.session_state.get("qualified_selected_name")
+                        if selected_name:
+                            selected = results[results["Name"] == selected_name]
+                            if not selected.empty:
+                                st.markdown("---")
+                                render_qualified_cards(selected)
